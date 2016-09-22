@@ -40,7 +40,7 @@ setup(
     # On the next release of gcloud we can move this to REQUIREMENTS
     dependency_links=[
         ('https://github.com/GoogleCloudPlatform/google-cloud-python'
-         '/tarball/master#egg=gcloud')],
+         '/tarball/master#egg=google-cloud')],
     install_requires=REQUIREMENTS,
     extras_require={
         'dev': ['check-manifest'],
