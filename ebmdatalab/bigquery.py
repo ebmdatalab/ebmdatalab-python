@@ -154,9 +154,15 @@ def load_statistics_from_pg():
 
 
 def load_presentation_from_pg():
+    def _transform(row):
+        if row[2] == 't':
+            row[2] = 'true'
+        else:
+            row[2] = 'false'
+        return row
     load_data_from_pg(
         'hscic', 'presentation', 'frontend_presentation',
-        PRESENTATION_SCHEMA)
+        PRESENTATION_SCHEMA, _transform=_transform)
 
 
 def load_data_from_pg(dataset_name, bq_table_name,
