@@ -1,7 +1,13 @@
-# the inclusion of the tests module is not meant to offer best practices for
-# testing in general, but rather to support the `find_packages` example in
-# setup.py that excludes installing the "tests" package
+import pytest
 
 
-def test_success():
-    assert True
+def test_get_env_setting_raises():
+    from ebmdatalab import bigquery
+    with pytest.raises(StandardError):
+        bigquery.get_env_setting('FROB1234')
+
+
+def test_get_env_setting_default():
+    from ebmdatalab import bigquery
+    result = bigquery.get_env_setting('FROB1234', 'foo')
+    assert result == 'foo'

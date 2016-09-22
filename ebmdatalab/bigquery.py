@@ -1,6 +1,6 @@
 import psycopg2
 from google.cloud import bigquery
-from bigquery import SchemaField
+from google.cloud.bigquery import SchemaField
 import time
 import csv
 import tempfile

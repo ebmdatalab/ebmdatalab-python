@@ -11,7 +11,8 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-REQUIREMENTS = ['google-cloud==0.19.999']
+REQUIREMENTS = ['google-cloud==0.19.999',
+                'psycopg2']
 
 here = path.abspath(path.dirname(__file__))
 
