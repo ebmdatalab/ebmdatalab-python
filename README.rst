@@ -12,3 +12,7 @@ Development notes
 To run tests and check packaging, run tox::
 
   $ tox
+
+To push to PyPI::
+
+  $ python setup.py sdist upload
