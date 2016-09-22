@@ -180,8 +180,10 @@ def load_data_from_pg(dataset_name, bq_table_name,
     with tempfile.NamedTemporaryFile(mode='r+b') as csv_file:
         if not cols:
             cols = [x.name for x in schema]
-        conn.cursor().copy_to(
-            csv_file, pg_table_name, sep=',', null='', columns=cols)
+        sql = "COPY %s(%s) TO STDOUT (FORMAT CSV, NULL '')" % (
+            pg_table_name, ",".join(cols))
+        conn.cursor().copy_expert(
+            sql, csv_file)
         csv_file.seek(0)
         load_data_from_file(
             dataset_name, bq_table_name,
