@@ -20,11 +20,11 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='ebmdatalab-bigquery-tools',
+    name='ebmdatalab-python',
     version='0.0.1',
     description='Tools used by EBMDataLab when interacting with BigQuery',
     long_description=long_description,
-    url='https://github.com/ebmdatalab-bigquery-tools',
+    url='https://github.com/ebmdatalab-tools',
     author='Seb Bacon',
     author_email='tech@ebmdatalab.net',
     license='MIT',
