@@ -1,3 +1,8 @@
+# Setuptools
+
+.cache
+dist/
+
 # Tox
 .tox
 
