@@ -15,4 +15,4 @@ To run tests and check packaging, run tox::
 
 To push to PyPI::
 
-  $ python setup.py sdist upload
+  $ python setup.py sdist upload -r pypi
