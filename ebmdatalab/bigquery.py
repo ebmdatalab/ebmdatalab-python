@@ -1,10 +1,20 @@
-import psycopg2
+"""A random collection of methods used in openprescribing, in need of
+refactoring, tests, and upgrading.
+
+"""
 from google.cloud import bigquery
 from google.cloud.bigquery import SchemaField
-import time
-import csv
-import tempfile
+from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
 from os import environ
+import csv
+import datetime
+import json
+import logging
+import psycopg2
+import re
+import tempfile
+import time
 
 
 PRESCRIBING_SCHEMA = [
@@ -30,25 +40,24 @@ PRESENTATION_SCHEMA = [
     SchemaField('percent_of_adq', 'FLOAT'),
 ]
 
-
 PRACTICE_SCHEMA = [
-   SchemaField('code', 'STRING'),
-   SchemaField('name', 'STRING'),
-   SchemaField('address1', 'STRING'),
-   SchemaField('address2', 'STRING'),
-   SchemaField('address3', 'STRING'),
-   SchemaField('address4', 'STRING'),
-   SchemaField('address5', 'STRING'),
-   SchemaField('postcode', 'STRING'),
-   SchemaField('location', 'STRING'),
-   SchemaField('area_team_id', 'STRING'),
-   SchemaField('ccg_id', 'STRING'),
-   SchemaField('setting', 'INTEGER'),
-   SchemaField('close_date', 'STRING'),
-   SchemaField('join_provider_date', 'STRING'),
-   SchemaField('leave_provider_date', 'STRING'),
-   SchemaField('open_date', 'STRING'),
-   SchemaField('status_code', 'STRING'),
+    SchemaField('code', 'STRING'),
+    SchemaField('name', 'STRING'),
+    SchemaField('address1', 'STRING'),
+    SchemaField('address2', 'STRING'),
+    SchemaField('address3', 'STRING'),
+    SchemaField('address4', 'STRING'),
+    SchemaField('address5', 'STRING'),
+    SchemaField('postcode', 'STRING'),
+    SchemaField('location', 'STRING'),
+    SchemaField('area_team_id', 'STRING'),
+    SchemaField('ccg_id', 'STRING'),
+    SchemaField('setting', 'INTEGER'),
+    SchemaField('close_date', 'STRING'),
+    SchemaField('join_provider_date', 'STRING'),
+    SchemaField('leave_provider_date', 'STRING'),
+    SchemaField('open_date', 'STRING'),
+    SchemaField('status_code', 'STRING'),
 ]
 
 
@@ -94,6 +103,16 @@ def get_env_setting(setting, default=None):
         else:
             error_msg = "Set the %s env variable" % setting
             raise StandardError(error_msg)
+
+
+def get_bq_service():
+    # We've started using the google-cloud library since first writing
+    # this. When it settles down a bit, start using that rather than
+    # this low-level API. See
+    # https://googlecloudplatform.github.io/google-cloud-python/
+    credentials = GoogleCredentials.get_application_default()
+    return discovery.build('bigquery', 'v2',
+                           credentials=credentials)
 
 
 def load_data_from_file(
@@ -203,3 +222,117 @@ def wait_for_job(job):
                 raise RuntimeError(job.error_result)
             return
         time.sleep(1)
+
+
+def query_and_return(project_id, table_id, query, legacy=False):
+    """Send query to BigQuery, wait, and return response object when the
+    job has completed.
+
+    """
+    if not legacy:
+        # Rename any legacy-style table references to use standard
+        # SQL dialect. Because we use a mixture of both, we
+        # standardise on only using the legacy style for the time
+        # being.
+        query = re.sub(r'\[(.+?):(.+?)\.(.+?)\]', r'\1.\2.\3', query)
+    payload = {
+        "configuration": {
+            "query": {
+                "query": query,
+                "flattenResuts": False,
+                "allowLargeResults": True,
+                "timeoutMs": 100000,
+                "useQueryCache": True,
+                "useLegacySql": legacy,
+                "destinationTable": {
+                    "projectId": 'ebmdatalab',
+                    "tableId": table_id,
+                    "datasetId": 'measures'
+                },
+                "createDisposition": "CREATE_IF_NEEDED",
+                "writeDisposition": "WRITE_TRUNCATE"
+            }
+        }
+    }
+    # We've started using the google-cloud library since first
+    # writing this. TODO: decide if we can use that throughout
+    bigquery = get_bq_service()
+    logging.info("Writing to bigquery table %s" % table_id)
+    start = datetime.datetime.now()
+    response = bigquery.jobs().insert(
+        projectId=project_id,
+        body=payload).execute()
+    counter = 0
+    job_id = response['jobReference']['jobId']
+    while True:
+        time.sleep(1)
+        response = bigquery.jobs().get(
+            projectId=project_id,
+            jobId=job_id).execute()
+        counter += 1
+        if response['status']['state'] == 'DONE':
+            if 'errors' in response['status']:
+                query = str(response['configuration']['query']['query'])
+                for i, l in enumerate(query.split("\n")):
+                    # print SQL query with line numbers for debugging
+                    print "{:>3}: {}".format(i + 1, l)
+                raise StandardError(
+                    json.dumps(response['status']['errors'], indent=2))
+            else:
+                break
+    bytes_billed = float(
+        response['statistics']['query']['totalBytesBilled'])
+    gb_processed = round(bytes_billed / 1024 / 1024 / 1024, 2)
+    est_cost = round(bytes_billed / 1e+12 * 5.0, 2)
+    # Add our own metadata
+    elapsed = (datetime.datetime.now() - start).total_seconds()
+    response['openp'] = {'query': query,
+                         'est_cost': est_cost,
+                         'time': elapsed,
+                         'gb_processed': gb_processed}
+    logging.info("Time %ss, cost $%s" % (elapsed, est_cost))
+    return response
+
+
+def get_rows(project_id, dataset_id, table_name):
+    """Iterate over the specified bigquery table, returning a dict for
+    each row of data.
+
+    """
+    bigquery = get_bq_service()
+    fields = bigquery.tables().get(
+        projectId=project_id,
+        datasetId=dataset_id,
+        tableId=table_name
+    ).execute()['schema']['fields']
+    response = bigquery.tabledata().list(
+        projectId=project_id,
+        datasetId=dataset_id,
+        tableId=table_name,
+        maxResults=100000, startIndex=0).execute()
+    while 'rows' in response:
+        for row in response['rows']:
+            yield _row_to_dict(row, fields)
+        if 'pageToken' in response:
+            response = bigquery.tabledata().list(
+                projectId=project_id,
+                datasetId=dataset_id,
+                tableId=table_name,
+                pageToken=response['pageToken'],
+                maxResults=100000).execute()
+        else:
+            break
+    raise StopIteration
+
+
+def _row_to_dict(row, fields):
+    """Converts a row from bigquery into a dictionary, and converts NaN to None
+    """
+    dict_row = {}
+    for i, item in enumerate(row['f']):
+        value = item['v']
+        key = fields[i]['name']
+        if value and value.lower() == 'nan':
+            value = None
+        dict_row[key] = value
+    return dict_row
