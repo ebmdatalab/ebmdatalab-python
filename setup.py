@@ -12,7 +12,8 @@ from codecs import open
 from os import path
 
 REQUIREMENTS = ['google-cloud==0.19.999',
-                'psycopg2']
+                'psycopg2',
+                'google-api-python-client==1.5.3']
 
 here = path.abspath(path.dirname(__file__))
 
@@ -22,7 +23,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='ebmdatalab-python',
-    version='0.0.2',
+    version='0.0.3',
     description='Tools used by EBMDataLab when interacting with BigQuery',
     long_description=long_description,
     url='https://github.com/ebmdatalab-tools',
@@ -45,6 +46,6 @@ setup(
          '/tarball/master#egg=google-cloud-0.19.999')],
     install_requires=REQUIREMENTS,
     extras_require={
-        'dev': ['check-manifest'],
+        'dev': ['check-manifest', 'mock'],
     },
 )
