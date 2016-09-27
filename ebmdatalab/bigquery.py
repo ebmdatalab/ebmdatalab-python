@@ -2,10 +2,6 @@
 refactoring, tests, and upgrading.
 
 """
-from google.cloud import bigquery
-from google.cloud.bigquery import SchemaField
-from googleapiclient import discovery
-from oauth2client.client import GoogleCredentials
 from os import environ
 import csv
 import datetime
@@ -16,6 +12,10 @@ import re
 import tempfile
 import time
 
+from google.cloud import bigquery
+from google.cloud.bigquery import SchemaField
+from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
 
 PRESCRIBING_SCHEMA = [
     SchemaField('sha', 'STRING'),
@@ -59,7 +59,6 @@ PRACTICE_SCHEMA = [
     SchemaField('open_date', 'STRING'),
     SchemaField('status_code', 'STRING'),
 ]
-
 
 PRACTICE_STATISTICS_SCHEMA = [
     SchemaField('month', 'TIMESTAMP'),
@@ -106,6 +105,8 @@ def get_env_setting(setting, default=None):
 
 
 def get_bq_service():
+    """Returns a bigquery service endpoint
+    """
     # We've started using the google-cloud library since first writing
     # this. When it settles down a bit, start using that rather than
     # this low-level API. See
@@ -118,6 +119,12 @@ def get_bq_service():
 def load_data_from_file(
         dataset_name, table_name,
         source_file_name, schema, _transform=None):
+    """Given a CSV of data, load it into BigQuery using the specified
+    schema, with an optional function to transform each row before
+    loading.
+
+    """
+    # We use the new-style bigquery library here
     client = bigquery.Client(project='ebmdatalab')
     dataset = client.dataset(dataset_name)
     table = dataset.table(
@@ -140,10 +147,17 @@ def load_data_from_file(
             write_disposition="WRITE_TRUNCATE",
             rewind=True)
         wait_for_job(job)
+        return job
 
 
 def load_prescribing_data_from_file(
         dataset_name, table_name, source_file_name):
+    """Given a formatted file of prescribing data, load it into BigQuery.
+
+    A 'formatted file' is a file created by the
+    import_hscic_prescribing Django management command.
+
+    """
     def _transform(row):
         # To match the prescribing table format in BigQuery, we have
         # to re-encode the date field as a bigquery TIMESTAMP and drop
@@ -158,6 +172,10 @@ def load_prescribing_data_from_file(
 
 
 def load_statistics_from_pg():
+    """Load the frontend_stataistics table from the openprescribing
+    application into BigQuery
+
+    """
     def _transform(row):
         row[0] = "%s 00:00:00" % row[0]
         return row
@@ -173,6 +191,10 @@ def load_statistics_from_pg():
 
 
 def load_presentation_from_pg():
+    """Load the frontend_presentation table from the openprescribing
+    application into BigQuery
+
+    """
     def _transform(row):
         if row[2] == 't':
             row[2] = 'true'
@@ -186,8 +208,8 @@ def load_presentation_from_pg():
 
 def load_data_from_pg(dataset_name, bq_table_name,
                       pg_table_name, schema, cols=None, _transform=None):
-    """Loads every row currently in the `frontend_practice` table to the
-    specified table in BigQuery
+    """Loads every row currently in named postgres table to a
+    specified table (with schema) in BigQuery
 
     """
     db_name = get_env_setting('DB_NAME')
@@ -215,6 +237,8 @@ def load_data_from_pg(dataset_name, bq_table_name,
 
 
 def wait_for_job(job):
+    """Poll a BigQuery job until it is finished
+    """
     while True:
         job.reload()
         if job.state == 'DONE':
@@ -256,17 +280,17 @@ def query_and_return(project_id, table_id, query, legacy=False):
     }
     # We've started using the google-cloud library since first
     # writing this. TODO: decide if we can use that throughout
-    bigquery = get_bq_service()
+    bq = get_bq_service()
     logging.info("Writing to bigquery table %s" % table_id)
     start = datetime.datetime.now()
-    response = bigquery.jobs().insert(
+    response = bq.jobs().insert(
         projectId=project_id,
         body=payload).execute()
     counter = 0
     job_id = response['jobReference']['jobId']
     while True:
         time.sleep(1)
-        response = bigquery.jobs().get(
+        response = bq.jobs().get(
             projectId=project_id,
             jobId=job_id).execute()
         counter += 1
@@ -299,13 +323,13 @@ def get_rows(project_id, dataset_id, table_name):
     each row of data.
 
     """
-    bigquery = get_bq_service()
-    fields = bigquery.tables().get(
+    bq = get_bq_service()
+    fields = bq.tables().get(
         projectId=project_id,
         datasetId=dataset_id,
         tableId=table_name
     ).execute()['schema']['fields']
-    response = bigquery.tabledata().list(
+    response = bq.tabledata().list(
         projectId=project_id,
         datasetId=dataset_id,
         tableId=table_name,
@@ -326,7 +350,9 @@ def get_rows(project_id, dataset_id, table_name):
 
 
 def _row_to_dict(row, fields):
-    """Converts a row from bigquery into a dictionary, and converts NaN to None
+    """Convert a row from bigquery into a dictionary, and convert NaN to
+    None
+
     """
     dict_row = {}
     for i, item in enumerate(row['f']):
