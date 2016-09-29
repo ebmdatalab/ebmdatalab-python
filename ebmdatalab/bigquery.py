@@ -150,25 +150,52 @@ def load_data_from_file(
         return job
 
 
-def load_prescribing_data_from_file(
-        dataset_name, table_name, source_file_name):
-    """Given a formatted file of prescribing data, load it into BigQuery.
+def prescribing_transform(row):
+    """Transform a row from a formatted file into data suitable for
+    storing in our bigquery schema
+
 
     A 'formatted file' is a file created by the
     import_hscic_prescribing Django management command.
 
     """
-    def _transform(row):
-        # To match the prescribing table format in BigQuery, we have
-        # to re-encode the date field as a bigquery TIMESTAMP and drop
-        # a couple of columns
-        row[10] = "%s 00:00:00" % row[10]
-        del(row[3])
-        del(row[-1])
-        return row
+    # To match the prescribing table format in BigQuery, we have
+    # to re-encode the date field as a bigquery TIMESTAMP and drop
+    # a couple of columns
+    row[10] = "%s 00:00:00" % row[10]
+    del(row[3])
+    del(row[-1])
+    return row
+
+
+def statistics_transform(row):
+    """Transform a row from the frontend_practicestatistics table so it
+    matches our statistics schema
+
+    """
+    row[0] = "%s 00:00:00" % row[0]  # BQ TIMESTAMP format
+    return row
+
+
+def presentation_transform(row):
+    """Transform a row from the frontend_presentation table so it
+    matches our statistics schema
+
+    """
+    if row[2] == 't':
+        row[2] = 'true'
+    else:
+        row[2] = 'false'
+    return row
+
+
+def load_prescribing_data_from_file(
+        dataset_name, table_name, source_file_name):
+    """Given a formatted file of prescribing data, load it into BigQuery.
+    """
     return load_data_from_file(
         dataset_name, table_name,
-        source_file_name, PRESCRIBING_SCHEMA, _transform=_transform)
+        source_file_name, PRESCRIBING_SCHEMA, _transform=prescribing_transform)
 
 
 def load_statistics_from_pg():
@@ -176,18 +203,15 @@ def load_statistics_from_pg():
     application into BigQuery
 
     """
-    def _transform(row):
-        row[0] = "%s 00:00:00" % row[0]
-        return row
     schema = PRACTICE_STATISTICS_SCHEMA
 
-    cols = [x.name for x in schema]
-    cols[0] = 'date'
-    cols[-1] = 'practice_id'
+    pg_cols = [x.name for x in schema]
+    pg_cols[0] = 'date'
+    pg_cols[-1] = 'practice_id'
 
     load_data_from_pg(
         'hscic', 'practice_statistics', 'frontend_practicestatistics',
-        schema, cols=cols, _transform=_transform)
+        schema, cols=pg_cols, _transform=statistics_transform)
 
 
 def load_presentation_from_pg():
@@ -195,15 +219,9 @@ def load_presentation_from_pg():
     application into BigQuery
 
     """
-    def _transform(row):
-        if row[2] == 't':
-            row[2] = 'true'
-        else:
-            row[2] = 'false'
-        return row
     load_data_from_pg(
         'hscic', 'presentation', 'frontend_presentation',
-        PRESENTATION_SCHEMA, _transform=_transform)
+        PRESENTATION_SCHEMA, _transform=presentation_transform)
 
 
 def load_data_from_pg(dataset_name, bq_table_name,
