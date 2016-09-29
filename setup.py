@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-REQUIREMENTS = ['google-cloud==0.19.999',
+REQUIREMENTS = ['google-cloud==0.20.0',
                 'psycopg2',
                 'google-api-python-client==1.5.3']
 
@@ -39,11 +39,11 @@ setup(
     ],
     keywords='bigquery utilities',
     packages=find_packages(),
-    # On the next release of google-cloud we can the origin rather
-    # than this fork
+    # We can remove the google-cloud-python dependency link when it's
+    # been published to PyPI
     dependency_links=[
-        ('https://github.com/sebbacon/google-cloud-python'
-         '/tarball/master#egg=google-cloud-0.19.999')],
+        ('https://github.com/GoogleCloudPlatform/google-cloud-python'
+         '/tarball/master#egg=google-cloud-0.20.0')],
     install_requires=REQUIREMENTS,
     extras_require={
         'dev': ['check-manifest', 'mock'],
