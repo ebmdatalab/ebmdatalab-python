@@ -39,11 +39,6 @@ setup(
     ],
     keywords='bigquery utilities',
     packages=find_packages(),
-    # We can remove the google-cloud-python dependency link when it's
-    # been published to PyPI
-    dependency_links=[
-        ('https://github.com/GoogleCloudPlatform/google-cloud-python'
-         '/tarball/master#egg=google-cloud-0.20.0')],
     install_requires=REQUIREMENTS,
     extras_require={
         'dev': ['check-manifest', 'mock'],
