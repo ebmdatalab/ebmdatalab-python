@@ -343,29 +343,20 @@ def get_rows(project_id, dataset_id, table_name):
     each row of data.
 
     """
-    bq = get_bq_service()
-    fields = bq.tables().get(
-        projectId=project_id,
-        datasetId=dataset_id,
-        tableId=table_name
-    ).execute()['schema']['fields']
-    response = bq.tabledata().list(
-        projectId=project_id,
-        datasetId=dataset_id,
-        tableId=table_name,
-        maxResults=100000, startIndex=0).execute()
-    while 'rows' in response:
-        for row in response['rows']:
+    client = bigquery.Client(project=project_id)
+    dataset = client.dataset(dataset_id)
+    table = dataset.table(table_name)
+    table.reload()
+    fields = [x.name for x in table.schema]
+    max_results = 100000
+    rows, _, token = table.fetch_data(max_results=max_results)
+    while True:
+        for row in rows:
             yield _row_to_dict(row, fields)
-        if 'pageToken' in response:
-            response = bigquery.tabledata().list(
-                projectId=project_id,
-                datasetId=dataset_id,
-                tableId=table_name,
-                pageToken=response['pageToken'],
-                maxResults=100000).execute()
-        else:
+        if token is None:
             break
+        rows, _, token = table.fetch_data(
+            page_token=token, max_results=max_results)
     raise StopIteration
 
 
@@ -375,10 +366,9 @@ def _row_to_dict(row, fields):
 
     """
     dict_row = {}
-    for i, item in enumerate(row['f']):
-        value = item['v']
-        key = fields[i]['name']
-        if value and value.lower() == 'nan':
+    for i, value in enumerate(row):
+        key = fields[i]
+        if value and str(value).lower() == 'nan':
             value = None
         dict_row[key] = value
     return dict_row
