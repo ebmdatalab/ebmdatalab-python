@@ -349,14 +349,15 @@ def get_rows(project_id, dataset_id, table_name):
     table.reload()
     fields = [x.name for x in table.schema]
     max_results = 100000
-    rows, _, token = table.fetch_data(max_results=max_results)
+    result = table.fetch_data(max_results=max_results)
+    token = result.next_page_token
     while True:
-        for row in rows:
+        for row in result:
             yield _row_to_dict(row, fields)
         if token is None:
             break
-        rows, _, token = table.fetch_data(
-            page_token=token, max_results=max_results)
+        result = table.fetch_data(page_token=token, max_results=max_results)
+        token = result.next_page_token
     raise StopIteration
 
 
