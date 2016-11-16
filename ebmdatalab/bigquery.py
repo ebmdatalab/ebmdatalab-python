@@ -338,7 +338,7 @@ def query_and_return(project_id, table_id, query, legacy=False):
     return response
 
 
-def get_rows(project_id, dataset_id, table_name):
+def get_rows(project_id, dataset_id, table_name, max_results=None):
     """Iterate over the specified bigquery table, returning a dict for
     each row of data.
 
@@ -348,7 +348,6 @@ def get_rows(project_id, dataset_id, table_name):
     table = dataset.table(table_name)
     table.reload()
     fields = [x.name for x in table.schema]
-    max_results = 100000
     result = table.fetch_data(max_results=max_results)
     token = result.next_page_token
     while True:
