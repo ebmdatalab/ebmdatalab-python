@@ -17,6 +17,16 @@ from google.cloud.bigquery import SchemaField
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
+CCG_SCHEMA = [
+    SchemaField('code', 'STRING'),
+    SchemaField('ons_code', 'STRING'),
+    SchemaField('org_type', 'STRING'),
+    SchemaField('open_date', 'TIMESTAMP'),
+    SchemaField('close_date', 'TIMESTAMP'),
+    SchemaField('address', 'STRING'),
+    SchemaField('postcode', 'STRING'),
+]
+
 PRESCRIBING_SCHEMA = [
     SchemaField('sha', 'STRING'),
     SchemaField('pct', 'STRING'),
@@ -222,6 +232,23 @@ def load_presentation_from_pg():
     load_data_from_pg(
         'hscic', 'presentation', 'frontend_presentation',
         PRESENTATION_SCHEMA, _transform=presentation_transform)
+
+
+def load_ccgs_from_pg():
+    """Load the frontend_practices table from the openprescribing
+    application into BigQuery
+
+    """
+    def transform(row):
+        if row[3]:
+            row[3] = "%s 00:00:00" % row[3]
+        if row[4]:
+            row[4] = "%s 00:00:00" % row[4]
+        return row
+
+    load_data_from_pg(
+        'hscic', 'ccgs', 'frontend_pct',
+        CCG_SCHEMA, cols=[x.name for x in CCG_SCHEMA], _transform=transform)
 
 
 def load_data_from_pg(dataset_name, bq_table_name,
