@@ -295,9 +295,9 @@ def wait_for_job(job):
         time.sleep(1)
 
 
-def query_and_return(project_id, table_id, query, legacy=False):
-    """Send query to BigQuery, wait, and return response object when the
-    job has completed.
+def query_and_return(project_id, dataset_id, table_id, query, legacy=False):
+    """Send query to BigQuery, wait, write it to table_id, and return
+    response object when the job has completed.
 
     """
     if not legacy:
@@ -316,9 +316,9 @@ def query_and_return(project_id, table_id, query, legacy=False):
                 "useQueryCache": True,
                 "useLegacySql": legacy,
                 "destinationTable": {
-                    "projectId": 'ebmdatalab',
+                    "projectId": project_id,
                     "tableId": table_id,
-                    "datasetId": 'measures'
+                    "datasetId": dataset_id
                 },
                 "createDisposition": "CREATE_IF_NEEDED",
                 "writeDisposition": "WRITE_TRUNCATE"
