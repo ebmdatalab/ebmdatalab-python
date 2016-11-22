@@ -235,7 +235,7 @@ def load_presentation_from_pg():
         PRESENTATION_SCHEMA, _transform=presentation_transform)
 
 
-def load_ccgs_from_pg():
+def load_ccgs_from_pg(dataset='hscic'):
     """Load the frontend_practices table from the openprescribing
     application into BigQuery
 
@@ -248,7 +248,7 @@ def load_ccgs_from_pg():
         return row
 
     load_data_from_pg(
-        'hscic', 'ccgs', 'frontend_pct',
+        dataset, 'ccgs', 'frontend_pct',
         CCG_SCHEMA, cols=[x.name for x in CCG_SCHEMA], _transform=transform)
 
 
