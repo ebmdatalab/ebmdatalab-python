@@ -19,6 +19,7 @@ from oauth2client.client import GoogleCredentials
 
 CCG_SCHEMA = [
     SchemaField('code', 'STRING'),
+    SchemaField('name', 'STRING'),
     SchemaField('ons_code', 'STRING'),
     SchemaField('org_type', 'STRING'),
     SchemaField('open_date', 'TIMESTAMP'),
