@@ -209,7 +209,7 @@ def load_prescribing_data_from_file(
         source_file_name, PRESCRIBING_SCHEMA, _transform=prescribing_transform)
 
 
-def load_statistics_from_pg():
+def load_statistics_from_pg(dataset='hscic'):
     """Load the frontend_stataistics table from the openprescribing
     application into BigQuery
 
@@ -221,17 +221,17 @@ def load_statistics_from_pg():
     pg_cols[-1] = 'practice_id'
 
     load_data_from_pg(
-        'hscic', 'practice_statistics', 'frontend_practicestatistics',
+        dataset, 'practice_statistics', 'frontend_practicestatistics',
         schema, cols=pg_cols, _transform=statistics_transform)
 
 
-def load_presentation_from_pg():
+def load_presentation_from_pg(dataset='hscic'):
     """Load the frontend_presentation table from the openprescribing
     application into BigQuery
 
     """
     load_data_from_pg(
-        'hscic', 'presentation', 'frontend_presentation',
+        dataset, 'presentation', 'frontend_presentation',
         PRESENTATION_SCHEMA, _transform=presentation_transform)
 
 
