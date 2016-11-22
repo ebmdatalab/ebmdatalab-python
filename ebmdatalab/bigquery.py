@@ -241,10 +241,10 @@ def load_ccgs_from_pg():
 
     """
     def transform(row):
-        if row[3]:
-            row[3] = "%s 00:00:00" % row[3]
         if row[4]:
             row[4] = "%s 00:00:00" % row[4]
+        if row[5]:
+            row[5] = "%s 00:00:00" % row[5]
         return row
 
     load_data_from_pg(
