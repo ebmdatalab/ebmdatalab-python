@@ -9,6 +9,8 @@ import json
 import logging
 import psycopg2
 import re
+import shutil
+import sys
 import tempfile
 import time
 
@@ -144,7 +146,7 @@ def load_data_from_file(
     if not table.exists():
         table.create()
     table.reload()
-    with tempfile.TemporaryFile(mode='rb+') as csv_file:
+    with tempfile.NamedTemporaryFile(mode='rb+') as csv_file:
         with open(source_file_name, 'rb') as source_file:
             writer = csv.writer(csv_file)
             reader = csv.reader(source_file)
@@ -157,7 +159,12 @@ def load_data_from_file(
             create_disposition="CREATE_IF_NEEDED",
             write_disposition="WRITE_TRUNCATE",
             rewind=True)
-        wait_for_job(job)
+        try:
+            wait_for_job(job)
+        except Exception as e:
+            shutil.copyfile(csv_file.name, "/tmp/error.csv")
+            extra_info = '. Failed CSV has been copied to /tmp/error.csv'
+            raise type(e), type(e)(e.message + extra_info), sys.exc_info()[2]
         return job
 
 
@@ -309,6 +316,9 @@ def query_and_return(project_id, dataset_id, table_id, query, legacy=False):
         query = re.sub(r'\[(.+?):(.+?)\.(.+?)\]', r'\1.\2.\3', query)
     payload = {
         "configuration": {
+            "extract": {
+                "compression": 'GZIP'
+            },
             "query": {
                 "query": query,
                 "flattenResuts": False,
