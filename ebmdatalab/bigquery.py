@@ -63,7 +63,6 @@ PRACTICE_SCHEMA = [
     SchemaField('address5', 'STRING'),
     SchemaField('postcode', 'STRING'),
     SchemaField('location', 'STRING'),
-    SchemaField('area_team_id', 'STRING'),
     SchemaField('ccg_id', 'STRING'),
     SchemaField('setting', 'INTEGER'),
     SchemaField('close_date', 'STRING'),
