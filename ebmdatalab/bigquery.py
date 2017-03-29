@@ -10,14 +10,49 @@ import logging
 import psycopg2
 import re
 import shutil
-import sys
+import subprocess
 import tempfile
 import time
 
 from google.cloud import bigquery
+from google.cloud import storage
 from google.cloud.bigquery import SchemaField
+from google.cloud.exceptions import NotFound
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
+
+
+logger = logging.getLogger(__name__)
+
+
+DMD_SCHEMA = [
+    SchemaField('dmdid', 'STRING'),
+    SchemaField('bnf_code', 'STRING'),
+    SchemaField('vpid', 'STRING'),
+    SchemaField('display_name', 'STRING'),
+    SchemaField('ema', 'STRING'),
+    SchemaField('pres_statcd', 'STRING'),
+    SchemaField('avail_restrictcd', 'STRING'),
+    SchemaField('product_type', 'STRING'),
+    SchemaField('non_availcd', 'STRING'),
+    SchemaField('concept_class', 'STRING'),
+    SchemaField('nurse_f', 'STRING'),
+    SchemaField('dent_f', 'STRING'),
+    SchemaField('prod_order_no', 'STRING'),
+    SchemaField('sched_1', 'STRING'),
+    SchemaField('sched_2', 'STRING'),
+    SchemaField('padm', 'STRING'),
+    SchemaField('fp10_mda', 'STRING'),
+    SchemaField('acbs', 'STRING'),
+    SchemaField('assort_flav', 'STRING'),
+    SchemaField('catcd', 'STRING'),
+    SchemaField('tariff_category', 'STRING'),
+    SchemaField('flag_imported', 'STRING'),
+    SchemaField('flag_broken_bulk', 'STRING'),
+    SchemaField('flag_non_bioequivalence', 'STRING'),
+    SchemaField('flag_special_containers', 'BOOLEAN')
+
+]
 
 CCG_SCHEMA = [
     SchemaField('code', 'STRING'),
@@ -163,7 +198,8 @@ def load_data_from_file(
         except Exception as e:
             shutil.copyfile(csv_file.name, "/tmp/error.csv")
             extra_info = '. Failed CSV has been copied to /tmp/error.csv'
-            raise type(e), type(e)(str(e.message) + extra_info), sys.exc_info()[2]
+            e.args = (e.args[0] + extra_info,) + e.args[1:]
+            raise
         return job
 
 
@@ -289,17 +325,64 @@ def load_data_from_pg(dataset_name, bq_table_name,
 
 
 def wait_for_job(job):
-    """Poll a BigQuery job until it is finished
+    """Poll a BigQuery job until it is finished.
+
+    Returns job
     """
-    while True:
-        job.reload()
-        if job.state == 'DONE':
-            if job.error_result:
-                error = job.error_result
-                error['errors'] = job.errors
-                raise RuntimeError(error)
-            return
+    if job.state != 'RUNNING':
+        job.begin()
+    retry_count = 1000
+    while retry_count > 0 and job.state != 'DONE':
+        retry_count -= 1
         time.sleep(1)
+        job.reload()
+    assert not job.errors, job.errors
+    return job
+
+
+def download_from_gcs(gcs_uri, target_path):
+    """Download file at given URI to `target_path
+    """
+    bucket, blob_name = gcs_uri.replace('gs://', '').split('/', 1)
+    client = storage.Client(project='embdatalab')
+    bucket = client.get_bucket(bucket)
+    prefix = blob_name.split('*')[0]
+    unzipped = open(target_path, 'w')
+    cmd = "gunzip -c -f %s >> %s"
+    for blob in bucket.list_blobs(prefix=prefix):
+        with tempfile.NamedTemporaryFile(mode='rb+') as f:
+            logger.info("Downloading %s to %s" % (blob.path, f.name))
+            blob.chunk_size = 2 ** 30
+            blob.download_to_file(f)
+            f.flush()
+            f.seek(0)
+            subprocess.check_call(
+                cmd % (f.name, unzipped.name), shell=True)
+    return unzipped.name
+
+
+def delete_from_gcs(gcs_uri):
+    bucket, blob_name = gcs_uri.replace('gs://', '').split('/', 1)
+    client = storage.Client(project='embdatalab')
+    try:
+        bucket = client.get_bucket(bucket)
+        prefix = blob_name.split('*')[0]
+        for blob in bucket.list_blobs(prefix=prefix):
+            blob.delete()
+    except NotFound:
+        pass
+
+
+def copy_table_to_gcs(table, gcs_uri):
+    delete_from_gcs(gcs_uri)
+    client = bigquery.client.Client(project='ebmdatalab')
+    job = client.extract_table_to_storage(
+        "extract-formatted-table-job-%s" % int(time.time()), table,
+        gcs_uri)
+    job.destination_format = 'CSV'
+    job.compression = 'GZIP'
+    job.print_header = False
+    job = wait_for_job(job)
 
 
 def query_and_return(project_id, dataset_id, table_id, query, legacy=False):
@@ -338,7 +421,7 @@ def query_and_return(project_id, dataset_id, table_id, query, legacy=False):
     # We've started using the google-cloud library since first
     # writing this. TODO: decide if we can use that throughout
     bq = get_bq_service()
-    logging.info("Writing to bigquery table %s" % table_id)
+    logger.info("Writing to bigquery table %s" % table_id)
     start = datetime.datetime.now()
     response = bq.jobs().insert(
         projectId=project_id,
@@ -371,7 +454,7 @@ def query_and_return(project_id, dataset_id, table_id, query, legacy=False):
                          'est_cost': est_cost,
                          'time': elapsed,
                          'gb_processed': gb_processed}
-    logging.info("Time %ss, cost $%s" % (elapsed, est_cost))
+    logger.info("Time %ss, cost $%s" % (elapsed, est_cost))
     return response
 
 
