@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-REQUIREMENTS = ['google-cloud>=0.20.1',
+REQUIREMENTS = ['google-cloud>=0.23.0',
                 'google-cloud-bigquery>=0.23.0',
                 'psycopg2',
                 'google-api-python-client==1.5.3']
@@ -24,7 +24,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='ebmdatalab-python',
-    version='0.0.18',
+    version='0.0.19',
     description='Tools used by EBMDataLab when interacting with BigQuery',
     long_description=long_description,
     url='https://github.com/ebmdatalab-tools',
