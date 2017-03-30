@@ -24,7 +24,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='ebmdatalab-python',
-    version='0.0.19',
+    version='0.0.20',
     description='Tools used by EBMDataLab when interacting with BigQuery',
     long_description=long_description,
     url='https://github.com/ebmdatalab-tools',

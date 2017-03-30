@@ -398,9 +398,6 @@ def query_and_return(project_id, dataset_id, table_id, query, legacy=False):
         query = re.sub(r'\[(.+?):(.+?)\.(.+?)\]', r'\1.\2.\3', query)
     payload = {
         "configuration": {
-            "extract": {
-                "compression": 'GZIP'
-            },
             "query": {
                 "query": query,
                 "flattenResuts": False,
