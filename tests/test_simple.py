@@ -30,7 +30,7 @@ def test_get_bq_service():
 @patch('ebmdatalab.bigquery.bigquery')
 @patch('ebmdatalab.bigquery.wait_for_job')
 def test_load_data_from_file(wait_mock, bigquery_mock):
-    with patch('tempfile.TemporaryFile', create=True) as mock_tempfile:
+    with patch('tempfile.NamedTemporaryFile', create=True) as mock_tempfile:
         writer_under_test = MagicMock(spec=file)
         mock_tempfile.return_value = writer_under_test
         with patch('ebmdatalab.bigquery.open', create=True) as mock_inputfile:
@@ -49,6 +49,26 @@ def test_load_data_from_file(wait_mock, bigquery_mock):
             # Check bigquery `upload_from_file` was called
             dataset = bigquery_mock.Client.return_value.dataset.return_value
             assert dataset.table.return_value.upload_from_file.called
+
+
+@patch('ebmdatalab.bigquery.bigquery')
+@patch('ebmdatalab.bigquery.wait_for_job')
+def test_load_data_from_file_with_exception(wait_mock, bigquery_mock):
+    with patch('tempfile.NamedTemporaryFile', create=True) \
+            as mock_tempfile:
+        writer_under_test = MagicMock(spec=file)
+        mock_tempfile.return_value = writer_under_test
+        with patch('ebmdatalab.bigquery.open', create=True) as mock_inputfile:
+            mock_csv = MagicMock(spec=file)
+            mock_csv.__enter__.return_value = iter(["1,foo", "2,bar"])
+            mock_inputfile.return_value = mock_csv
+            wait_mock.side_effect = RuntimeError("foo")
+            with patch('shutil.copyfile'):
+                with pytest.raises(RuntimeError) as e_info:
+                    bigquery.load_data_from_file(
+                        'dataset', 'table', 'source_mock',
+                        [], _transform=lambda row: [row[0], row[1].upper()])
+                    assert "Failed CVS has been copied" in e_info.exconly()
 
 
 @patch('ebmdatalab.bigquery.get_env_setting')
