@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import uuid
 
 from google.cloud import bigquery
 from google.cloud import storage
@@ -377,7 +378,7 @@ def copy_table_to_gcs(table, gcs_uri):
     delete_from_gcs(gcs_uri)
     client = bigquery.client.Client(project='ebmdatalab')
     job = client.extract_table_to_storage(
-        "extract-formatted-table-job-%s" % int(time.time()), table,
+        "extract-formatted-table-job-%s" % uuid.uuid1(), table,
         gcs_uri)
     job.destination_format = 'CSV'
     job.compression = 'GZIP'
