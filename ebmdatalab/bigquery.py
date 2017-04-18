@@ -199,7 +199,7 @@ def load_data_from_file(
         except Exception as e:
             shutil.copyfile(csv_file.name, "/tmp/error.csv")
             extra_info = '. Failed CSV has been copied to /tmp/error.csv'
-            e.args = (e.args[0] + extra_info,) + e.args[1:]
+            e.args = "%s %s %s" % (e.args[0], extra_info, e.args[1:])
             raise
         return job
 
