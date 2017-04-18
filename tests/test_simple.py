@@ -69,6 +69,7 @@ def test_load_data_from_file_with_exception(wait_mock, bigquery_mock):
                         'dataset', 'table', 'source_mock',
                         [], _transform=lambda row: [row[0], row[1].upper()])
                     assert "Failed CVS has been copied" in e_info.exconly()
+                    assert "2,bar" in e_info.exconly()
 
 
 @patch('ebmdatalab.bigquery.get_env_setting')
