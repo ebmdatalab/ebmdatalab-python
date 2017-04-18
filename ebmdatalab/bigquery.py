@@ -202,7 +202,7 @@ def load_data_from_file(
             extra_info += "final line:\n"
             extra_info += subprocess.check_output(
                 'tail -1 /tmp/error.csv', shell=True)
-            e.args = (e.args[0] + extra_info,), e.args[1:]
+            e.args = (str(e.args[0]) + extra_info,), e.args[1:]
             raise
         return job
 

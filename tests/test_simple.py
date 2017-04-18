@@ -62,7 +62,7 @@ def test_load_data_from_file_with_exception(wait_mock, bigquery_mock):
             mock_csv = MagicMock(spec=file)
             mock_csv.__enter__.return_value = iter(["1,foo", "2,bar"])
             mock_inputfile.return_value = mock_csv
-            wait_mock.side_effect = RuntimeError("foo")
+            wait_mock.side_effect = RuntimeError(["foo"])
             with patch('shutil.copyfile'):
                 with pytest.raises(RuntimeError) as e_info:
                     bigquery.load_data_from_file(
